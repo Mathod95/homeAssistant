@@ -1,0 +1,138 @@
+blueprint:
+  name: Aqara H2 EU double rocker (WS-K08E) via Zigbee2MQTT
+  description: >
+    Associe une action à chaque geste (simple clic, double clic, maintien)
+    des 4 boutons de l'interrupteur Aqara H2 EU double rocker (WS-K08E),
+    appairé via Zigbee2MQTT.
+
+
+    Conseil : passer les deux côtés en mode `decoupled` pour que les boutons
+    du haut ne pilotent plus directement les relais. Le double clic sur les
+    boutons du bas nécessite que `multi_click_left_down` / `multi_click_right_down`
+    soient activés (ce qui ajoute un léger délai sur le simple clic).
+  domain: automation
+  input:
+    device_settings:
+      name: Interrupteur
+      icon: mdi:light-switch
+      input:
+        z2m_name:
+          name: Friendly name Zigbee2MQTT
+          description: >
+            Le nom de l'appareil dans Zigbee2MQTT (ex. 0x54ef4410016a1287,
+            ou le nom que tu lui as donné). Sensible à la casse.
+          selector:
+            text: {}
+        base_topic:
+          name: Base topic MQTT
+          description: Base topic de Zigbee2MQTT (par défaut zigbee2mqtt).
+          default: zigbee2mqtt
+          selector:
+            text: {}
+
+    section_left:
+      name: Gauche (haut)
+      icon: mdi:arrow-top-left
+      collapsed: true
+      input:
+        single_left:
+          name: Simple clic
+          description: Les boutons du haut ne gèrent que le simple clic.
+          default: []
+          selector:
+            action: {}
+
+    section_left_down:
+      name: Gauche (bas)
+      icon: mdi:arrow-bottom-left
+      collapsed: true
+      input:
+        single_left_down:
+          name: Simple clic
+          default: []
+          selector:
+            action: {}
+        double_left_down:
+          name: Double clic
+          default: []
+          selector:
+            action: {}
+        hold_left_down:
+          name: Maintien
+          default: []
+          selector:
+            action: {}
+
+    section_right:
+      name: Droite (haut)
+      icon: mdi:arrow-top-right
+      collapsed: true
+      input:
+        single_right:
+          name: Simple clic
+          description: Les boutons du haut ne gèrent que le simple clic.
+          default: []
+          selector:
+            action: {}
+
+    section_right_down:
+      name: Droite (bas)
+      icon: mdi:arrow-bottom-right
+      collapsed: true
+      input:
+        single_right_down:
+          name: Simple clic
+          default: []
+          selector:
+            action: {}
+        double_right_down:
+          name: Double clic
+          default: []
+          selector:
+            action: {}
+        hold_right_down:
+          name: Maintien
+          default: []
+          selector:
+            action: {}
+
+mode: queued
+max: 10
+max_exceeded: silent
+
+trigger_variables:
+  base_topic: !input base_topic
+  z2m_name: !input z2m_name
+
+triggers:
+  - trigger: mqtt
+    topic: "{{ base_topic }}/{{ z2m_name }}/action"
+
+conditions:
+  - condition: template
+    value_template: "{{ trigger.payload not in ['', 'None', None] }}"
+
+actions:
+  - variables:
+      press: "{{ trigger.payload }}"
+  - choose:
+      # Gauche (haut)
+      - conditions: "{{ press == 'single_left' }}"
+        sequence: !input single_left
+      # Gauche (bas)
+      - conditions: "{{ press == 'single_left_down' }}"
+        sequence: !input single_left_down
+      - conditions: "{{ press == 'double_left_down' }}"
+        sequence: !input double_left_down
+      - conditions: "{{ press == 'hold_left_down' }}"
+        sequence: !input hold_left_down
+      # Droite (haut)
+      - conditions: "{{ press == 'single_right' }}"
+        sequence: !input single_right
+      # Droite (bas)
+      - conditions: "{{ press == 'single_right_down' }}"
+        sequence: !input single_right_down
+      - conditions: "{{ press == 'double_right_down' }}"
+        sequence: !input double_right_down
+      - conditions: "{{ press == 'hold_right_down' }}"
+        sequence: !input hold_right_down
