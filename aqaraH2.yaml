@@ -1,28 +1,32 @@
 blueprint:
   name: Aqara H2 EU double rocker (WS-K08E) via Zigbee2MQTT
   description: >
-    Associe une action à chaque geste (simple clic, double clic, maintien)
-    des 4 boutons de l'interrupteur Aqara H2 EU double rocker (WS-K08E),
-    appairé via Zigbee2MQTT.
+    Associe une action à chaque geste des 4 boutons de l'interrupteur
+    Aqara H2 EU double rocker (WS-K08E), appairé via Zigbee2MQTT.
+
+    - Boutons du haut (left / right) : simple clic uniquement.
+    - Boutons du bas (left_down / right_down) : simple clic, double clic et maintien
+      (le multi click doit être activé sur ces boutons).
 
 
     Conseil : passer les deux côtés en mode `decoupled` pour que les boutons
-    du haut ne pilotent plus directement les relais. Le double clic sur les
-    boutons du bas nécessite que `multi_click_left_down` / `multi_click_right_down`
-    soient activés (ce qui ajoute un léger délai sur le simple clic).
+    du haut ne pilotent plus directement les relais. Si une ampoule connectée
+    est câblée derrière, garder le relai allumé et activer `lock_relay`.
   domain: automation
   input:
     device_settings:
       name: Interrupteur
       icon: mdi:light-switch
       input:
-        z2m_name:
-          name: Friendly name Zigbee2MQTT
-          description: >
-            Le nom de l'appareil dans Zigbee2MQTT (ex. 0x54ef4410016a1287,
-            ou le nom que tu lui as donné). Sensible à la casse.
+        switch_device:
+          name: Interrupteur Aqara H2
+          description: L'interrupteur WS-K08E exposé par Zigbee2MQTT.
           selector:
-            text: {}
+            device:
+              filter:
+                - integration: mqtt
+                  manufacturer: Aqara
+                  model: Light switch H2 EU (double rocker)
         base_topic:
           name: Base topic MQTT
           description: Base topic de Zigbee2MQTT (par défaut zigbee2mqtt).
@@ -102,19 +106,25 @@ max_exceeded: silent
 
 trigger_variables:
   base_topic: !input base_topic
-  z2m_name: !input z2m_name
+
+variables:
+  switch_device: !input switch_device
+  # Le nom du device côté HA correspond au friendly name Zigbee2MQTT
+  # (même si tu le renommes dans l'UI de HA, ce champ ne change pas).
+  z2m_name: "{{ device_attr(switch_device, 'name') }}"
+  press: "{{ trigger.payload }}"
 
 triggers:
   - trigger: mqtt
-    topic: "{{ base_topic }}/{{ z2m_name }}/action"
+    topic: "{{ base_topic }}/+/action"
 
 conditions:
   - condition: template
-    value_template: "{{ trigger.payload not in ['', 'None', None] }}"
+    value_template: >
+      {{ trigger.topic == base_topic ~ '/' ~ z2m_name ~ '/action'
+         and press not in ['', 'None'] }}
 
 actions:
-  - variables:
-      press: "{{ trigger.payload }}"
   - choose:
       # Gauche (haut)
       - conditions: "{{ press == 'single_left' }}"
